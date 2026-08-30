@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: blue-orbit-backend
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 4
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_MODEL
+        value: meta/llama-3.1-8b-instruct
+    healthCheckPath: /
