@@ -1,0 +1,26 @@
+{
+  "short_name": "Blue Orbit",
+  "name": "Blue Orbit — ISRO Marine Ecosystem Reasoning",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#05070B",
+  "theme_color": "#05070B",
+  "display": "standalone",
+  "orientation": "portrait"
+}
