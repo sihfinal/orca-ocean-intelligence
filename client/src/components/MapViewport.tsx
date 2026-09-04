@@ -267,6 +267,20 @@ export const MapViewport: React.FC<MapViewportProps> = ({
     }
   }, [pfzHotspots, activeRoute]);
 
+  // Smoothly animate map camera to selected harbour position when selected from Safety Barometer
+  useEffect(() => {
+    if (!mapInstanceRef.current || !weather?.latitude || !weather?.longitude) return;
+
+    try {
+      mapInstanceRef.current.flyTo([weather.latitude, weather.longitude], 9, {
+        animate: true,
+        duration: 1.2
+      });
+    } catch (err) {
+      console.warn('Map flyTo animation exception handled:', err);
+    }
+  }, [weather?.latitude, weather?.longitude]);
+
   // Static Layers (200 NM Indian EEZ, IMBL & MPA)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
