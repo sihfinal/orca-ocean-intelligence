@@ -369,9 +369,27 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     }
   }, [layers.showEEZ, layers.showIMBL, layers.showMPA]);
 
+  // Helper to find nearest harbour to a given latitude & longitude
+  const findNearestHarbour = (lat: number, lon: number) => {
+    let closestPort = INDIAN_PORTS[0];
+    let minDist = Infinity;
+    for (const port of INDIAN_PORTS) {
+      const dist = (port.lat - lat) ** 2 + (port.lon - lon) ** 2;
+      if (dist < minDist) {
+        minDist = dist;
+        closestPort = port;
+      }
+    }
+    return closestPort;
+  };
+
   // 2-Stage Multi-Modal Route Calculation (Stage 1: Road Drive 🚗, Stage 2: Sea Sailing 🚢)
-  const planTwoStageRoute = async (port: { id: string; name: string; lat: number; lon: number; state: string }) => {
+  const planTwoStageRoute = async (port: { id: string; name: string; lat: number; lon: number; state: string }, targetPFZOverride?: PFZHotspot) => {
     setSelectedTargetPort(port);
+    try {
+      localStorage.setItem('orca_last_selected_port_id', port.id);
+    } catch {}
+
     const startCoords = userCoords || { lat: 12.9716, lon: 77.5946 }; // Use live location (e.g. Bangalore)
 
     // 1. Fetch Road driving route via OpenStreetMap OSRM
@@ -403,7 +421,8 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     setCarProgress(0);
 
     // 2. Target PFZ offshore from Harbour
-    const targetPFZ = pfzHotspots.find(p => p.nearest_port?.toLowerCase().includes(port.name.toLowerCase()) || p.nearest_port?.toLowerCase().includes(port.id))
+    const targetPFZ = targetPFZOverride
+      || pfzHotspots.find(p => p.nearest_port?.toLowerCase().includes(port.name.toLowerCase()) || p.nearest_port?.toLowerCase().includes(port.id))
       || pfzHotspots[0]
       || {
         id: `pfz_${port.id}`,
@@ -428,6 +447,10 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
         recommended_gear: "Purse Seine"
       };
 
+    try {
+      localStorage.setItem('orca_last_selected_pfz_id', targetPFZ.id);
+    } catch {}
+
     onSelectPFZ(targetPFZ);
 
     // Fit map bounds to encompass start position, port, and offshore target
@@ -443,7 +466,7 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     }
   };
 
-  // Expose planTwoStageRoute handler to window for Leaflet popup action buttons
+  // Expose planTwoStageRoute handlers to window for Leaflet popup action buttons
   useEffect(() => {
     (window as any).planTwoStageRoute = (portId: string) => {
       const port = INDIAN_PORTS.find(p => p.id === portId);
@@ -451,7 +474,30 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
         planTwoStageRoute(port);
       }
     };
+
+    (window as any).planTwoStageRouteForPFZ = (pfzId: string) => {
+      const pfz = pfzHotspots.find(p => p.id === pfzId);
+      if (pfz) {
+        const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
+        planTwoStageRoute(nearestPort, pfz);
+      }
+    };
   }, [userCoords, pfzHotspots, selectedPFZ]);
+
+  // Restore saved route selection from localStorage on mount / load
+  useEffect(() => {
+    try {
+      const savedPortId = localStorage.getItem('orca_last_selected_port_id');
+      if (savedPortId && INDIAN_PORTS.length > 0 && landRouteWaypoints.length === 0) {
+        const port = INDIAN_PORTS.find(p => p.id === savedPortId);
+        const savedPfzId = localStorage.getItem('orca_last_selected_pfz_id');
+        const pfz = pfzHotspots.find(p => p.id === savedPfzId);
+        if (port) {
+          planTwoStageRoute(port, pfz);
+        }
+      }
+    } catch {}
+  }, [pfzHotspots]);
 
   // Render Stage 1 (Land Road Polyline + Car Animation 🚗)
   useEffect(() => {
@@ -675,16 +721,19 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
             setIsDetailDrawerOpen(true);
           })
           .bindPopup(`
-            <div class="p-2 space-y-1 min-w-[200px] text-slate-900 font-sans">
+            <div class="p-2 space-y-1.5 min-w-[210px] text-slate-900 font-sans">
               <div class="flex items-center justify-between border-b pb-1 font-bold">
                 <span class="text-xs text-blue-700">${pfz.name}</span>
-                <span class="text-[10px] text-emerald-700 px-1 py-0.5 bg-emerald-50 rounded">${pfz.confidence_score_percent}% PFZ</span>
+                <span class="text-[10px] text-emerald-700 px-1 py-0.5 bg-emerald-50 rounded font-bold">${pfz.confidence_score_percent}% PFZ</span>
               </div>
               <div class="text-[11px] text-slate-600 space-y-0.5 pt-1">
                 <div>Species: <strong>${pfz.dominant_species}</strong></div>
                 <div>SST: <strong>${pfz.sst_celsius}°C</strong> | Chl-a: <strong>${pfz.chlorophyll_a_mg_m3} mg/m³</strong></div>
                 <div>Catch Boost: <strong class="text-amber-700">${pfz.catch_enhancement_multiplier}</strong></div>
               </div>
+              <button onclick="window.planTwoStageRouteForPFZ('${pfz.id}')" class="w-full mt-1.5 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all">
+                <span>🚗 ➔ 🚢 Navigate (Land + Sea)</span>
+              </button>
             </div>
           `);
 
