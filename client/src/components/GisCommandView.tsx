@@ -293,17 +293,26 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
 
     mapInstanceRef.current = map;
 
-    setTimeout(() => map.invalidateSize(), 150);
-    setTimeout(() => map.invalidateSize(), 500);
+    const timer1 = setTimeout(() => {
+      try { mapInstanceRef.current?.invalidateSize(); } catch {}
+    }, 150);
+
+    const timer2 = setTimeout(() => {
+      try { mapInstanceRef.current?.invalidateSize(); } catch {}
+    }, 500);
 
     const resizeObserver = new ResizeObserver(() => {
-      mapInstanceRef.current?.invalidateSize();
+      try { mapInstanceRef.current?.invalidateSize(); } catch {}
     });
     if (mapContainerRef.current) resizeObserver.observe(mapContainerRef.current);
 
     return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       resizeObserver.disconnect();
-      map.remove();
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
     };
   }, []);
@@ -598,7 +607,12 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
 
     const marker = L.marker([userCoords.lat, userCoords.lon], { icon: userGpsIcon, zIndexOffset: 1500 });
     userLocationGroup.current.addLayer(marker);
-    mapInstanceRef.current.flyTo([userCoords.lat, userCoords.lon], 9, { duration: 1.5 });
+    try {
+      mapInstanceRef.current.invalidateSize();
+      mapInstanceRef.current.flyTo([userCoords.lat, userCoords.lon], 9, { duration: 1.5 });
+    } catch (e) {
+      console.warn('[Leaflet] flyTo safely guarded:', e);
+    }
   }, [userCoords]);
 
   return (

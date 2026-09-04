@@ -220,6 +220,42 @@ export const DEFAULT_PFZ_HOTSPOTS: PFZHotspot[] = [
   }
 ];
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.warn('[Blue Orbit Error Boundary Handled Exception]:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white p-6 text-center space-y-4 font-['Outfit',sans-serif]">
+          <div className="w-12 h-12 rounded-full bg-blue-600/30 border border-blue-500 flex items-center justify-center text-blue-400">
+            <Compass className="w-6 h-6 animate-spin" />
+          </div>
+          <h2 className="text-xl font-bold">Re-syncing Blue Orbit Platform...</h2>
+          <p className="text-xs text-slate-400 max-w-sm">Connecting live satellite telemetry stream.</p>
+          <button
+            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            className="px-5 py-2.5 bg-blue-600 rounded-xl text-xs font-bold hover:bg-blue-500 cursor-pointer shadow-md transition-all"
+          >
+            Reload Session
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function App() {
   const getInitialTab = (): 'home' | 'chat' | 'map' | 'agent-lab' | 'safety' | 'bulletin' => {
     if (typeof window !== 'undefined') {
@@ -569,20 +605,22 @@ export function App() {
 
       {/* Fullscreen Liquid Glass GIS Command Center */}
       <div className={activeTab === 'map' ? 'block relative w-full h-full' : 'hidden'}>
-        <GisCommandView
-          pfzHotspots={pfzHotspots}
-          selectedPFZ={selectedPFZ}
-          onSelectPFZ={handleSelectPFZ}
-          activeRoute={activeRoute}
-          weather={weather}
-          satellites={satellites}
-          onSendMessage={(q, l) => handleSendMessage(q, l, 'map')}
-          isLoading={isGisLoading}
-          latestResponse={gisResponse}
-          currentLang={currentLang}
-          onMapClickCoord={handleMapClickCoord}
-          userCoords={userCoords}
-        />
+        <ErrorBoundary>
+          <GisCommandView
+            pfzHotspots={pfzHotspots}
+            selectedPFZ={selectedPFZ}
+            onSelectPFZ={handleSelectPFZ}
+            activeRoute={activeRoute}
+            weather={weather}
+            satellites={satellites}
+            onSendMessage={(q, l) => handleSendMessage(q, l, 'map')}
+            isLoading={isGisLoading}
+            latestResponse={gisResponse}
+            currentLang={currentLang}
+            onMapClickCoord={handleMapClickCoord}
+            userCoords={userCoords}
+          />
+        </ErrorBoundary>
       </div>
 
 
