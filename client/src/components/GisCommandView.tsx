@@ -158,6 +158,7 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
   const mpaLayerGroup = useRef<L.LayerGroup>(L.layerGroup());
   const portsLayerGroup = useRef<L.LayerGroup>(L.layerGroup());
   const routeLayerGroup = useRef<L.LayerGroup>(L.layerGroup());
+  const landRouteLayerGroup = useRef<L.LayerGroup>(L.layerGroup());
   const alternateRouteGroup = useRef<L.LayerGroup>(L.layerGroup());
   const cycloneLayerGroup = useRef<L.LayerGroup>(L.layerGroup());
   const rasterContourGroup = useRef<L.LayerGroup>(L.layerGroup());
@@ -166,6 +167,11 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
   const clickMarkerGroup = useRef<L.LayerGroup>(L.layerGroup());
   const userLocationGroup = useRef<L.LayerGroup>(L.layerGroup());
   const vesselMarkerRef = useRef<L.Marker | null>(null);
+
+  // 2-Stage Multi-Modal Navigation State (Land Road + Sea Nautical)
+  const [selectedTargetPort, setSelectedTargetPort] = useState<{ id: string; name: string; lat: number; lon: number; state: string } | null>(null);
+  const [landRouteWaypoints, setLandRouteWaypoints] = useState<[number, number][]>([]);
+  const [carProgress, setCarProgress] = useState(0);
 
 
   // Ingest Real Alerts from Backend Response
@@ -259,6 +265,7 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     mpaLayerGroup.current.addTo(map);
     portsLayerGroup.current.addTo(map);
     routeLayerGroup.current.addTo(map);
+    landRouteLayerGroup.current.addTo(map);
     alternateRouteGroup.current.addTo(map);
     cycloneLayerGroup.current.addTo(map);
     pfzCentroidGroup.current.addTo(map);
@@ -362,6 +369,153 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     }
   }, [layers.showEEZ, layers.showIMBL, layers.showMPA]);
 
+  // 2-Stage Multi-Modal Route Calculation (Stage 1: Road Drive 🚗, Stage 2: Sea Sailing 🚢)
+  const planTwoStageRoute = async (port: { id: string; name: string; lat: number; lon: number; state: string }) => {
+    setSelectedTargetPort(port);
+    const startCoords = userCoords || { lat: 12.9716, lon: 77.5946 }; // Use live location (e.g. Bangalore)
+
+    // 1. Fetch Road driving route via OpenStreetMap OSRM
+    let waypoints: [number, number][] = [];
+    try {
+      const osrmRes = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${startCoords.lon},${startCoords.lat};${port.lon},${port.lat}?overview=full&geometries=geojson`
+      );
+      if (osrmRes.ok) {
+        const osrmData = await osrmRes.json();
+        if (osrmData.routes && osrmData.routes.length > 0) {
+          const coords: [number, number][] = osrmData.routes[0].geometry.coordinates;
+          waypoints = coords.map((c: [number, number]) => [c[1], c[0]]);
+        }
+      }
+    } catch (err) {
+      console.warn("OSRM road route fetch failed, fallback direct path:", err);
+    }
+
+    if (waypoints.length === 0) {
+      waypoints = [
+        [startCoords.lat, startCoords.lon],
+        [(startCoords.lat + port.lat) / 2, (startCoords.lon + port.lon) / 2],
+        [port.lat, port.lon]
+      ];
+    }
+
+    setLandRouteWaypoints(waypoints);
+    setCarProgress(0);
+
+    // 2. Target PFZ offshore from Harbour
+    const targetPFZ = pfzHotspots.find(p => p.nearest_port?.toLowerCase().includes(port.name.toLowerCase()) || p.nearest_port?.toLowerCase().includes(port.id))
+      || pfzHotspots[0]
+      || {
+        id: `pfz_${port.id}`,
+        name: `${port.name} Offshore Zone`,
+        latitude: port.lat - 0.25,
+        longitude: port.lon - 0.35,
+        recommended_depth_m: 45,
+        sst_celsius: 28.6,
+        chlorophyll_a_mg_m3: 1.85,
+        thermal_gradient_c_per_10km: 0.55,
+        chlorophyll_gradient_per_10km: 0.35,
+        front_coincidence_index: 0.88,
+        confidence_score_percent: 88,
+        dominant_species: "Sardines & Anchovies",
+        species_suitability_indices: {},
+        catch_enhancement_multiplier: "4.5x",
+        nearest_port: port.name,
+        distance_from_port_km: 35,
+        distance_from_port_nm: 18.9,
+        bearing_from_port: "SW",
+        validity: "Next 24h",
+        recommended_gear: "Purse Seine"
+      };
+
+    onSelectPFZ(targetPFZ);
+
+    // Fit map bounds to encompass start position, port, and offshore target
+    if (mapInstanceRef.current) {
+      try {
+        const bounds = L.latLngBounds([
+          [startCoords.lat, startCoords.lon],
+          [port.lat, port.lon],
+          [targetPFZ.latitude, targetPFZ.longitude]
+        ]);
+        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 });
+      } catch {}
+    }
+  };
+
+  // Expose planTwoStageRoute handler to window for Leaflet popup action buttons
+  useEffect(() => {
+    (window as any).planTwoStageRoute = (portId: string) => {
+      const port = INDIAN_PORTS.find(p => p.id === portId);
+      if (port) {
+        planTwoStageRoute(port);
+      }
+    };
+  }, [userCoords, pfzHotspots, selectedPFZ]);
+
+  // Render Stage 1 (Land Road Polyline + Car Animation 🚗)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    landRouteLayerGroup.current.clearLayers();
+
+    if (landRouteWaypoints.length > 1) {
+      // Solid Blue Road Polyline
+      const landPolyline = L.polyline(landRouteWaypoints, {
+        color: '#2563EB',
+        weight: 5,
+        opacity: 0.95
+      }).bindPopup(`
+        <div class="p-1 font-sans text-slate-900">
+          <div class="text-xs font-bold text-blue-700">🚗 Stage 1: Driving Road Route</div>
+          <div class="text-[11px] text-slate-600">Driving from Live GPS Position to ${selectedTargetPort?.name || 'Harbour'}</div>
+        </div>
+      `);
+      landRouteLayerGroup.current.addLayer(landPolyline);
+
+      // Start Marker (User Location)
+      const startMarker = L.circleMarker(landRouteWaypoints[0], {
+        radius: 7,
+        color: '#FFF',
+        fillColor: '#2563EB',
+        fillOpacity: 1,
+        weight: 2
+      }).bindPopup('<div class="text-xs font-bold text-blue-800 font-sans">Origin: Live GPS Position</div>');
+      landRouteLayerGroup.current.addLayer(startMarker);
+
+      // Animated Car Icon moving on land route
+      const carPos = landRouteWaypoints[Math.min(carProgress, landRouteWaypoints.length - 1)];
+      const carIcon = L.divIcon({
+        className: 'car-icon',
+        html: `
+          <div class="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white border-2 border-white shadow-xl text-base">
+            🚗
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const carMarker = L.marker(carPos, { icon: carIcon })
+        .bindPopup(`
+          <div class="p-1 font-sans text-slate-900">
+            <div class="text-xs font-bold text-blue-700">🚗 Road Driving Vehicle</div>
+            <div class="text-[11px] text-slate-600">Transit En Route to ${selectedTargetPort?.name || 'Harbour'}</div>
+          </div>
+        `);
+
+      landRouteLayerGroup.current.addLayer(carMarker);
+    }
+  }, [landRouteWaypoints, carProgress, selectedTargetPort]);
+
+  // Car animation ticker
+  useEffect(() => {
+    if (landRouteWaypoints.length <= 1) return;
+    const interval = setInterval(() => {
+      setCarProgress(prev => (prev >= landRouteWaypoints.length - 1 ? 0 : prev + 1));
+    }, 450);
+    return () => clearInterval(interval);
+  }, [landRouteWaypoints]);
+
   // Render Ports Layer
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -383,9 +537,18 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
         const m = L.marker([port.lat, port.lon], { icon: portIcon })
           .on('click', () => onMapClickCoord(port.lat, port.lon))
           .bindPopup(`
-            <div class="p-1 font-sans text-slate-900">
-              <strong class="text-xs text-blue-700 font-bold">${port.name}</strong>
-              <div class="text-[10px] text-slate-500">${port.state} • Port Base</div>
+            <div class="p-2 font-sans text-slate-900 min-w-[220px] space-y-1.5">
+              <div class="flex items-center justify-between border-b pb-1 font-bold">
+                <span class="text-xs text-blue-700">${port.name}</span>
+                <span class="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">${port.state}</span>
+              </div>
+              <div class="text-[11px] text-slate-600">
+                <div>Coordinates: ${port.lat.toFixed(4)}°N, ${port.lon.toFixed(4)}°E</div>
+                <div>Harbour Base: <span class="text-emerald-700 font-semibold">Active Coastal Base</span></div>
+              </div>
+              <button onclick="window.planTwoStageRoute('${port.id}')" class="w-full mt-2 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all">
+                <span>🚗 ➔ 🚢 Plan Route from My Location</span>
+              </button>
             </div>
           `);
         portsLayerGroup.current.addLayer(m);
