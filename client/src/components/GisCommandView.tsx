@@ -35,6 +35,7 @@ import {
 } from '../types';
 import { speakText, stopSpeech } from '../utils/speechUtils';
 import { INDIAN_EEZ_BOUNDARY, INDIAN_TERRITORIAL_WATERS_12NM } from '../utils/indiaBoundary';
+import { DEFAULT_PFZ_HOTSPOTS } from '../App';
 import { LayerControlPanel, LayerVisibilityState } from './LayerControlPanel';
 import { DataLegendBar } from './DataLegendBar';
 import { TemporalControlBar } from './TemporalControlBar';
@@ -674,8 +675,10 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     pfzCentroidGroup.current.clearLayers();
     pfzPolygonGroup.current.clearLayers();
 
-    if (layers.showPFZ && pfzHotspots.length > 0) {
-      pfzHotspots.forEach(pfz => {
+    const activeHotspots = (pfzHotspots && pfzHotspots.length > 0) ? pfzHotspots : DEFAULT_PFZ_HOTSPOTS;
+
+    if (layers.showPFZ && activeHotspots.length > 0) {
+      activeHotspots.forEach(pfz => {
         const isSelected = selectedPFZ?.id === pfz.id;
 
         // Render synthetic polygon boundary around centroid for realistic spatial extent
@@ -696,6 +699,8 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
         }).on('click', () => {
           onSelectPFZ(pfz);
           setIsDetailDrawerOpen(true);
+          const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
+          planTwoStageRoute(nearestPort, pfz);
         });
 
         pfzPolygonGroup.current.addLayer(polygon);
@@ -719,6 +724,8 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
           .on('click', () => {
             onSelectPFZ(pfz);
             setIsDetailDrawerOpen(true);
+            const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
+            planTwoStageRoute(nearestPort, pfz);
           })
           .bindPopup(`
             <div class="p-2 space-y-1.5 min-w-[210px] text-slate-900 font-sans">
