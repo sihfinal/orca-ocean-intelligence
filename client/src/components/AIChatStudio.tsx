@@ -408,44 +408,7 @@ export const AIChatStudio: React.FC<AIChatStudioProps> = ({
                             {copiedId === msg.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
                           </button>
                         </div>
-
-                        {/* Phase 8 & 9 Decision Chips & Inspect Toggle */}
-                        {msg.data?.decision && (
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              msg.data.decision.decision_status === 'RECOMMENDED'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                : msg.data.decision.decision_status === 'NO_GO'
-                                ? 'bg-rose-50 text-rose-700 border-rose-300'
-                                : 'bg-amber-50 text-amber-700 border-amber-300'
-                            }`}>
-                              {msg.data.decision.decision_status}
-                            </span>
-                            <span className="font-mono text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 text-[10px]">
-                              {(msg.data.decision.confidence.overall_confidence * 100).toFixed(0)}% Conf
-                            </span>
-                            <button
-                              onClick={() => setExpandedDecisionId(expandedDecisionId === msg.id ? null : msg.id)}
-                              className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center space-x-1 transition-colors cursor-pointer"
-                            >
-                              <span>{expandedDecisionId === msg.id ? 'Hide Evidence' : 'Inspect Evidence'}</span>
-                              {expandedDecisionId === msg.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            </button>
-                          </div>
-                        )}
                       </div>
-
-                      {/* Inline Expanded Decision & Evidence Panel */}
-                      {expandedDecisionId === msg.id && msg.data?.decision && (
-                        <div className="pt-3 border-t border-zinc-100 animate-in fade-in duration-200">
-                          <DecisionEvidencePanel
-                            decision={msg.data.decision}
-                            evidencePackage={msg.data.evidence_package}
-                            claimValidation={msg.data.claim_validation}
-                            currentLang={currentLang}
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
                 </motion.div>
