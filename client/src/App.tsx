@@ -221,7 +221,44 @@ export const DEFAULT_PFZ_HOTSPOTS: PFZHotspot[] = [
 ];
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'map' | 'agent-lab' | 'safety' | 'bulletin'>('home');
+  const getInitialTab = (): 'home' | 'chat' | 'map' | 'agent-lab' | 'safety' | 'bulletin' => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '');
+      const valid = ['home', 'chat', 'map', 'agent-lab', 'safety', 'bulletin'];
+      if (valid.includes(hash)) return hash as any;
+    }
+    return 'home';
+  };
+
+  const [activeTab, setActiveTabState] = useState<'home' | 'chat' | 'map' | 'agent-lab' | 'safety' | 'bulletin'>(getInitialTab);
+
+  const setActiveTab = (tab: 'home' | 'chat' | 'map' | 'agent-lab' | 'safety' | 'bulletin') => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      if (window.location.hash.replace('#', '') !== tab) {
+        window.history.pushState({ tab }, '', `#${tab}`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const hash = window.location.hash.replace('#', '');
+      const valid = ['home', 'chat', 'map', 'agent-lab', 'safety', 'bulletin'];
+      if (valid.includes(hash)) {
+        setActiveTabState(hash as any);
+      } else {
+        setActiveTabState('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
+
   const [currentLang, setCurrentLang] = useState<string>('en');
   const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(null);
 
@@ -253,6 +290,7 @@ export function App() {
     document.title = "Blue Orbit — ISRO Marine Ecosystem Reasoning with Collaborative Agents";
     requestLocationAndInitialize();
   }, []);
+
 
   const requestLocationAndInitialize = async () => {
     // 1. Check Native Mobile Environment (Capacitor Android / iOS)
@@ -530,7 +568,7 @@ export function App() {
       )}
 
       {/* Fullscreen Liquid Glass GIS Command Center */}
-      {activeTab === 'map' && (
+      <div className={activeTab === 'map' ? 'block relative w-full h-full' : 'hidden'}>
         <GisCommandView
           pfzHotspots={pfzHotspots}
           selectedPFZ={selectedPFZ}
@@ -545,7 +583,8 @@ export function App() {
           onMapClickCoord={handleMapClickCoord}
           userCoords={userCoords}
         />
-      )}
+      </div>
+
 
       {/* Dedicated Holographic Agent DAG Studio */}
       {activeTab === 'agent-lab' && (
