@@ -465,18 +465,6 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     } catch {}
 
     onSelectPFZ(targetPFZ);
-
-    // Fit map bounds to encompass start position, port, and offshore target
-    if (mapInstanceRef.current) {
-      try {
-        const bounds = L.latLngBounds([
-          [startCoords.lat, startCoords.lon],
-          [port.lat, port.lon],
-          [targetPFZ.latitude, targetPFZ.longitude]
-        ]);
-        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 });
-      } catch {}
-    }
   };
 
   // Expose planTwoStageRoute handlers to window for Leaflet popup action buttons
@@ -489,7 +477,8 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     };
 
     (window as any).planTwoStageRouteForPFZ = (pfzId: string) => {
-      const pfz = pfzHotspots.find(p => p.id === pfzId);
+      const activeHotspots = (pfzHotspots && pfzHotspots.length > 0) ? pfzHotspots : DEFAULT_PFZ_HOTSPOTS;
+      const pfz = activeHotspots.find(p => p.id === pfzId);
       if (pfz) {
         const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
         planTwoStageRoute(nearestPort, pfz);
@@ -765,8 +754,6 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
         }).on('click', () => {
           onSelectPFZ(pfz);
           setIsDetailDrawerOpen(true);
-          const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
-          planTwoStageRoute(nearestPort, pfz);
         });
 
         pfzPolygonGroup.current.addLayer(polygon);
@@ -790,8 +777,6 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
           .on('click', () => {
             onSelectPFZ(pfz);
             setIsDetailDrawerOpen(true);
-            const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
-            planTwoStageRoute(nearestPort, pfz);
           })
           .bindPopup(`
             <div class="p-2 space-y-1.5 min-w-[210px] text-slate-900 font-sans">
@@ -804,9 +789,6 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
                 <div>SST: <strong>${pfz.sst_celsius}°C</strong> | Chl-a: <strong>${pfz.chlorophyll_a_mg_m3} mg/m³</strong></div>
                 <div>Catch Boost: <strong class="text-amber-700">${pfz.catch_enhancement_multiplier}</strong></div>
               </div>
-              <button onclick="window.planTwoStageRouteForPFZ('${pfz.id}')" class="w-full mt-1.5 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all">
-                <span>🚗 ➔ 🚢 Navigate (Land + Sea)</span>
-              </button>
             </div>
           `);
 
@@ -1008,6 +990,8 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
           onComputeRoute={(pfz) => {
             setIsDetailDrawerOpen(false);
             onSelectPFZ(pfz);
+            const nearestPort = findNearestHarbour(pfz.latitude, pfz.longitude);
+            planTwoStageRoute(nearestPort, pfz);
           }}
           weather={weather}
           geofence={latestResponse?.geofence_status}
