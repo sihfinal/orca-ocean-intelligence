@@ -613,7 +613,7 @@ export function App() {
       )}
 
       {/* Tab 1: Minimalist Dedicated AI Chatbot Studio Page (Gemini-style) */}
-      {activeTab === 'chat' && (
+      <div className={activeTab === 'chat' ? 'block relative w-full h-full' : 'hidden'}>
         <AIChatStudio
           onSendMessage={(q, l) => handleSendMessage(q, l, 'chat')}
           isLoading={isChatLoading}
@@ -622,7 +622,7 @@ export function App() {
           setCurrentLang={setCurrentLang}
           onNavigateToMap={() => setActiveTab('map')}
         />
-      )}
+      </div>
 
       {/* Fullscreen Liquid Glass GIS Command Center */}
       <div className={activeTab === 'map' ? 'block relative w-full h-full' : 'hidden'}>
@@ -644,9 +644,8 @@ export function App() {
         </ErrorBoundary>
       </div>
 
-
       {/* Dedicated Holographic Agent DAG Studio */}
-      {activeTab === 'agent-lab' && (
+      <div className={activeTab === 'agent-lab' ? 'block relative w-full h-full' : 'hidden'}>
         <AgentDAGStudio
           satellites={satellites}
           latestResponse={dagResponse}
@@ -654,7 +653,7 @@ export function App() {
           onSendMessage={(q, l) => handleSendMessage(q, l, 'dag-lab')}
           currentLang={currentLang}
         />
-      )}
+      </div>
 
       {/* Other Workspace Tabs (Safety, Bulletin) */}
       {activeTab !== 'home' && activeTab !== 'chat' && activeTab !== 'map' && activeTab !== 'agent-lab' && (
