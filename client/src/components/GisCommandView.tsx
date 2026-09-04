@@ -598,6 +598,7 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
 
     const marker = L.marker([userCoords.lat, userCoords.lon], { icon: userGpsIcon, zIndexOffset: 1500 });
     userLocationGroup.current.addLayer(marker);
+    mapInstanceRef.current.flyTo([userCoords.lat, userCoords.lon], 9, { duration: 1.5 });
   }, [userCoords]);
 
   return (
