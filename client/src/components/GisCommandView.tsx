@@ -389,6 +389,10 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
 
   // 2-Stage Multi-Modal Route Calculation (Stage 1: Road Drive 🚗, Stage 2: Sea Sailing 🚢)
   const planTwoStageRoute = async (port: { id: string; name: string; lat: number; lon: number; state: string }, targetPFZOverride?: PFZHotspot) => {
+    setIsDetailDrawerOpen(false);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+    }
     // Clear all previous land & sea routes and markers from map
     landRouteLayerGroup.current.clearLayers();
     routeLayerGroup.current.clearLayers();

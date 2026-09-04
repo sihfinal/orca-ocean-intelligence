@@ -121,6 +121,9 @@ export const MapViewport: React.FC<MapViewportProps> = ({
 
   // Compute 2-Stage Navigation Route (Road 🚗 + Sea 🚢)
   const planTwoStageRoute = async (port: { id: string; name: string; lat: number; lon: number; state: string }, targetPFZOverride?: PFZHotspot) => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.closePopup();
+    }
     const originLat = userCoords?.lat ?? 9.9312;
     const originLon = userCoords?.lon ?? 76.2673;
 
