@@ -389,6 +389,12 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
 
   // 2-Stage Multi-Modal Route Calculation (Stage 1: Road Drive 🚗, Stage 2: Sea Sailing 🚢)
   const planTwoStageRoute = async (port: { id: string; name: string; lat: number; lon: number; state: string }, targetPFZOverride?: PFZHotspot) => {
+    // Clear all previous land & sea routes and markers from map
+    landRouteLayerGroup.current.clearLayers();
+    routeLayerGroup.current.clearLayers();
+    setLandRouteWaypoints([]);
+    setSeaRouteWaypoints([]);
+
     setSelectedTargetPort(port);
     try {
       localStorage.setItem('orca_last_selected_port_id', port.id);
