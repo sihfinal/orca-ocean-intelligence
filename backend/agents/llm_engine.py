@@ -85,7 +85,7 @@ async def call_groq_llm(user_prompt: str) -> Optional[str]:
     
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-    models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    models = ["groq/compound", "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 
     for model in models:
         try:
