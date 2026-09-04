@@ -173,6 +173,9 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
   const [selectedTargetPort, setSelectedTargetPort] = useState<{ id: string; name: string; lat: number; lon: number; state: string } | null>(null);
   const [landRouteWaypoints, setLandRouteWaypoints] = useState<[number, number][]>([]);
   const [carProgress, setCarProgress] = useState(0);
+  const [seaRouteWaypoints, setSeaRouteWaypoints] = useState<[number, number][]>([]);
+  const [boatProgress, setBoatProgress] = useState(0);
+  const hasInitiallyCenteredRef = useRef(false);
 
 
   // Ingest Real Alerts from Backend Response
@@ -448,6 +451,15 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
         recommended_gear: "Purse Seine"
       };
 
+    // 3. Build Stage 2 Sea Waypoints from Harbour to Ocean PFZ
+    const seaPoints: [number, number][] = [
+      [port.lat, port.lon],
+      [(port.lat * 0.5 + targetPFZ.latitude * 0.5), (port.lon * 0.5 + targetPFZ.longitude * 0.5)],
+      [targetPFZ.latitude, targetPFZ.longitude]
+    ];
+    setSeaRouteWaypoints(seaPoints);
+    setBoatProgress(0);
+
     try {
       localStorage.setItem('orca_last_selected_pfz_id', targetPFZ.id);
     } catch {}
@@ -554,14 +566,68 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
     }
   }, [landRouteWaypoints, carProgress, selectedTargetPort]);
 
-  // Car animation ticker
+  // Render Stage 2 (Sea Ocean Polyline + Boat Animation 🚢)
   useEffect(() => {
-    if (landRouteWaypoints.length <= 1) return;
+    if (!mapInstanceRef.current) return;
+
+    if (seaRouteWaypoints.length > 1) {
+      // Nautical Ocean Blue Polyline
+      const seaPolyline = L.polyline(seaRouteWaypoints, {
+        color: '#0284C7',
+        weight: 5,
+        opacity: 0.95,
+        dashArray: '8, 6'
+      }).bindPopup(`
+        <div class="p-1 font-sans text-slate-900">
+          <div class="text-xs font-bold text-sky-700">🚢 Stage 2: Maritime Ocean Route</div>
+          <div class="text-[11px] text-slate-600">Sailing from ${selectedTargetPort?.name || 'Harbour'} to PFZ Hotspot</div>
+        </div>
+      `);
+      routeLayerGroup.current.addLayer(seaPolyline);
+
+      // Destination Marker
+      const destMarker = L.circleMarker(seaRouteWaypoints[seaRouteWaypoints.length - 1], {
+        radius: 8,
+        color: '#FFF',
+        fillColor: '#0284C7',
+        fillOpacity: 1,
+        weight: 2
+      }).bindPopup('<div class="text-xs font-bold text-blue-800 font-sans">Destination: Ocean PFZ Hotspot</div>');
+      routeLayerGroup.current.addLayer(destMarker);
+
+      // Animated Boat Icon moving on ocean route
+      const boatPos = seaRouteWaypoints[Math.min(boatProgress, seaRouteWaypoints.length - 1)];
+      const boatIcon = L.divIcon({
+        className: 'vessel-icon',
+        html: `
+          <div class="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white border-2 border-white shadow-xl text-base animate-pulse">
+            🚢
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const boatMarker = L.marker(boatPos, { icon: boatIcon })
+        .bindPopup(`
+          <div class="p-1 font-sans text-slate-900">
+            <div class="text-xs font-bold text-blue-700">🚢 Fishing Trawler</div>
+            <div class="text-[11px] text-slate-600">Sailing En Route to Ocean PFZ</div>
+          </div>
+        `);
+
+      routeLayerGroup.current.addLayer(boatMarker);
+    }
+  }, [seaRouteWaypoints, boatProgress, selectedTargetPort]);
+
+  // Boat animation ticker
+  useEffect(() => {
+    if (seaRouteWaypoints.length <= 1) return;
     const interval = setInterval(() => {
-      setCarProgress(prev => (prev >= landRouteWaypoints.length - 1 ? 0 : prev + 1));
-    }, 450);
+      setBoatProgress(prev => (prev >= seaRouteWaypoints.length - 1 ? 0 : prev + 1));
+    }, 600);
     return () => clearInterval(interval);
-  }, [landRouteWaypoints]);
+  }, [seaRouteWaypoints]);
 
   // Render Ports Layer
   useEffect(() => {
@@ -826,11 +892,14 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
 
     const marker = L.marker([userCoords.lat, userCoords.lon], { icon: userGpsIcon, zIndexOffset: 1500 });
     userLocationGroup.current.addLayer(marker);
-    try {
-      mapInstanceRef.current.invalidateSize();
-      mapInstanceRef.current.flyTo([userCoords.lat, userCoords.lon], 9, { duration: 1.5 });
-    } catch (e) {
-      console.warn('[Leaflet] flyTo safely guarded:', e);
+    if (!hasInitiallyCenteredRef.current) {
+      hasInitiallyCenteredRef.current = true;
+      try {
+        mapInstanceRef.current.invalidateSize();
+        mapInstanceRef.current.flyTo([userCoords.lat, userCoords.lon], 9, { duration: 1.5 });
+      } catch (e) {
+        console.warn('[Leaflet] flyTo safely guarded:', e);
+      }
     }
   }, [userCoords]);
 

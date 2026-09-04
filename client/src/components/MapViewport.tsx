@@ -426,8 +426,19 @@ export const MapViewport: React.FC<MapViewportProps> = ({
       `);
 
     userLocationGroup.current.addLayer(marker);
-    mapInstanceRef.current.flyTo([userCoords.lat, userCoords.lon], 9, { duration: 1.5 });
   }, [userCoords]);
+
+  // Zoom to selected harbour when selected from Safety Barometer
+  useEffect(() => {
+    if (weather && weather.latitude && weather.longitude && mapInstanceRef.current) {
+      try {
+        mapInstanceRef.current.invalidateSize();
+        mapInstanceRef.current.flyTo([weather.latitude, weather.longitude], 10, { duration: 1.5 });
+      } catch (e) {
+        console.warn('[MapViewport] flyTo harbour failed:', e);
+      }
+    }
+  }, [weather?.latitude, weather?.longitude]);
 
   // Vessel animation ticker
   useEffect(() => {
