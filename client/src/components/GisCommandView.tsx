@@ -779,7 +779,7 @@ export const GisCommandView: React.FC<GisCommandViewProps> = ({
           iconAnchor: [14, 14]
         });
 
-        const marker = L.marker([pfz.latitude, pfz.longitude], { icon: customIcon })
+        const marker = L.marker([pfz.latitude, pfz.longitude], { icon: customIcon, zIndexOffset: 2000 })
           .on('click', () => {
             onSelectPFZ(pfz);
             setIsDetailDrawerOpen(true);

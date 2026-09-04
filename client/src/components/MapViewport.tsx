@@ -300,7 +300,7 @@ export const MapViewport: React.FC<MapViewportProps> = ({
           iconAnchor: [14, 14]
         });
 
-        const marker = L.marker([pfz.latitude, pfz.longitude], { icon: customIcon })
+        const marker = L.marker([pfz.latitude, pfz.longitude], { icon: customIcon, zIndexOffset: 2000 })
           .on('click', () => onSelectPFZ(pfz))
           .bindPopup(`
             <div class="p-2 space-y-1.5 min-w-[220px] text-slate-900">
