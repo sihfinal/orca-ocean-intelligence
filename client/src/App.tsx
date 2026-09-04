@@ -521,6 +521,28 @@ export function App() {
   // Map Click coordinate investigation
   const handleMapClickCoord = async (lat: number, lon: number) => {
     setIsGisLoading(true);
+    setWeather(prev => ({
+      ...(prev || {
+        safety_status: 'SAFE_FOR_VENTURE',
+        safety_index: 85,
+        safety_badge_color: 'emerald',
+        actionable_advice: 'Fetching location telemetry...',
+        significant_wave_height_m: 1.2,
+        swell_period_seconds: 7,
+        wind_speed_knots: 12,
+        wind_speed_kmph: 22,
+        wind_direction_degrees: 240,
+        beaufort_scale: 3,
+        sea_state: 'Smooth',
+        lightning_probability_percent: 5,
+        visibility_km: 15,
+        cyclone_influence: { active_cyclone: null, distance_km: null, intensity: null },
+        timestamp: new Date().toISOString()
+      }),
+      latitude: lat,
+      longitude: lon
+    }));
+
     try {
       fetch(`${API_BASE}/api/weather?lat=${lat}&lon=${lon}`)
         .then(res => res.ok ? res.json() : null)
