@@ -80,11 +80,12 @@ def is_valid_api_key(key: Optional[str]) -> bool:
 
 async def call_groq_llm(user_prompt: str) -> Optional[str]:
     """Calls Groq API for ultra-fast Llama-3 inference."""
-    if not is_valid_api_key(GROQ_API_KEY):
+    groq_key = os.getenv("GROQ_API_KEY") or GROQ_API_KEY
+    if not is_valid_api_key(groq_key):
         return None
     
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
     models = ["groq/compound", "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 
     for model in models:
@@ -105,9 +106,12 @@ async def call_groq_llm(user_prompt: str) -> Optional[str]:
                     content = data["choices"][0]["message"]["content"].strip()
                     logger.info(f"Groq ({model}) generated dynamic advisory.")
                     return content
+                else:
+                    logger.warning(f"Groq ({model}) returned HTTP {res.status_code}: {res.text[:120]}")
         except Exception as e:
             logger.warning(f"Groq API error with {model}: {e}")
     return None
+
 
 async def call_gemini_llm(user_prompt: str) -> Optional[str]:
     """Calls Google Gemini API (2.0 Flash / 1.5 Flash)."""
