@@ -13,13 +13,13 @@ class TropicalCycloneAdapter(BaseDataServiceAdapter):
     Adapter for live tropical cyclone tracking across the Arabian Sea and Bay of Bengal.
     Truthfully reports active systems or an empty list if no cyclones exist.
     """
-    def __init__(self, timeout_seconds: float = 8.0):
+    def __init__(self, timeout_seconds: float = 2.0):
         super().__init__(
             source_name="GDACS & IMD RSMC Tropical Cyclone Feed",
             organization="Global Disaster Alert & Coordination System / IMD RSMC New Delhi",
             base_url="https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH",
             timeout_seconds=timeout_seconds,
-            max_retries=1
+            max_retries=0
         )
 
     async def get_active_cyclones(
